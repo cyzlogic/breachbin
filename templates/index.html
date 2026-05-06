@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breach Bin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;900&family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-icon">⬡</span>
+                <span class="brand-text">breach<span class="accent">bin</span></span>
+            </div>
+            <div class="nav-links">
+                <a href="#" class="nav-link active" data-tab="home">Home</a>
+                <a href="#" class="nav-link" data-tab="pastes">Pastes</a>
+                <a href="#" class="nav-link" data-tab="users">Users</a>
+                <a href="#" class="nav-link" data-tab="management">Management</a>
+                <a href="#" class="nav-link" data-tab="marketplace">Marketplace</a>
+                <a href="#" class="nav-link" data-tab="announcements">News</a>
+                <a href="#" class="nav-link" data-tab="tos">TOS</a>
+            </div>
+            <div class="nav-actions">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="globalSearch" placeholder="Search pastes / users..." class="search-input">
+                </div>
+                <div id="authButtons">
+                    <button class="btn btn-outline" onclick="showAuth('login')">Login</button>
+                    <button class="btn btn-primary" onclick="showAuth('signup')">Sign Up</button>
+                </div>
+                <div id="userMenu" class="user-menu hidden">
+                    <div class="user-badge" onclick="toggleDropdown()">
+                        <span id="userDisplay" class="user-display"></span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="userDropdown" class="dropdown-menu hidden">
+                        <a href="#" onclick="viewMyProfile()"><i class="fas fa-user"></i> Profile</a>
+                        <a href="#" onclick="showCreatePaste()"><i class="fas fa-plus"></i> New Paste</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Panel Overlay -->
+    <div id="adminPanel" class="admin-panel hidden">
+        <div class="admin-overlay" onclick="hideAdmin()"></div>
+        <div class="admin-content">
+            <div class="admin-header">
+                <h2><i class="fas fa-shield-halved"></i> Admin Panel</h2>
+                <button class="btn-close" onclick="hideAdmin()">&times;</button>
+            </div>
+            <div class="admin-tabs">
+                <button class="admin-tab active" onclick="switchAdminTab('users', this)">Users</button>
+                <button class="admin-tab" onclick="switchAdminTab('pastes', this)">Pastes</button>
+                <button class="admin-tab" onclick="switchAdminTab('announce', this)">Announce</button>
+                <button class="admin-tab" onclick="switchAdminTab('tos', this)">Edit TOS</button>
+            </div>
+            <div id="adminUsers" class="admin-section active">
+                <div class="admin-search">
+                    <input type="text" id="adminUserSearch" placeholder="Search users..." oninput="adminSearchUsers()">
+                </div>
+                <div id="adminUsersList" class="admin-list"></div>
+            </div>
+            <div id="adminPastes" class="admin-section">
+                <div class="admin-search">
+                    <input type="text" id="adminPasteSearch" placeholder="Search pastes..." oninput="adminSearchPastes()">
+                </div>
+                <div id="adminPastesList" class="admin-list"></div>
+            </div>
+            <div id="adminAnnounce" class="admin-section">
+                <input type="text" id="announceTitle" placeholder="Announcement Title" class="admin-input">
+                <textarea id="announceContent" placeholder="Announcement Content..." class="admin-textarea" rows="4"></textarea>
+                <button class="btn btn-primary" onclick="postAnnouncement()">Post Announcement</button>
+                <div id="adminAnnouncementsList" class="admin-list mt-2"></div>
+            </div>
+            <div id="adminTos" class="admin-section">
+                <textarea id="tosEditor" class="admin-textarea" rows="10"></textarea>
+                <button class="btn btn-primary" onclick="saveTOS()">Save TOS</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal hidden">
+        <div class="modal-overlay" onclick="hideAuth()"></div>
+        <div class="modal-content auth-modal">
+            <button class="btn-close" onclick="hideAuth()">&times;</button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuth('login')">Login</button>
+                <button class="auth-tab" onclick="switchAuth('signup')">Sign Up</button>
+            </div>
+            <form id="loginForm" onsubmit="login(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUsername" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" required class="form-input">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Login</button>
+                <p id="loginError" class="form-error"></p>
+            </form>
+            <form id="signupForm" class="hidden" onsubmit="signup(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="signupUsername" required class="form-input" minlength="3" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label>Email <span class="optional">(optional)</span></label>
+                    <input type="email" id="signupEmail" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="signupPassword" required class="form-input" minlength="4">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+                <p id="signupError" class="form-error"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Paste Modal -->
+    <div id="createPasteModal" class="modal hidden">
+        <div class="modal-overlay" onclick="hideCreatePaste()"></div>
+        <div class="modal-content paste-modal">
+            <button class="btn-close" onclick="hideCreatePaste()">&times;</button>
+            <h2>Create New Paste</h2>
+            <form onsubmit="createPaste(event)">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="pasteTitle" class="form-input" placeholder="Untitled">
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea id="pasteContent" required class="form-textarea" rows="12" placeholder="Paste your content here..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Syntax</label>
+                        <select id="pasteSyntax" class="form-select">
+                            <option value="text">Text</option>
+                            <option value="python">Python</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="html">HTML</option>
+                            <option value="css">CSS</option>
+                            <option value="sql">SQL</option>
+                            <option value="bash">Bash</option>
+                            <option value="json">JSON</option>
+                            <option value="cpp">C++</option>
+                            <option value="java">Java</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Exposure</label>
+                        <select id="pasteExposure" class="form-select">
+                            <option value="public">Public</option>
+                            <option value="unlisted">Unlisted</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="pasteAnonymous">
+                        <span>post as anonymous</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Create Paste</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Tab -->
+        <section id="tab-home" class="tab-content active">
+            <div class="hero">
+                <pre class="ascii-art" id="asciiArt">   __                    __     __   _    
+  / /  _______ ___ _____/ /    / /  (_)__ 
+ / _ \/ __/ -_) _ `/ __/ _ \_ / _ \/ / _ \
+/_.__/_/  \__/\_,_/\__/_//_(_)_.__/_/_//_/
+                                          </pre>
+                <p class="hero-subtitle">anonymous paste sharing platform</p>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalPastes">0</span>
+                        <span class="stat-label">Total Pastes</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalUsers">0</span>
+                        <span class="stat-label">Users</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="recentPastes">0</span>
+                        <span class="stat-label">Recent Pastes</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pastes Tab -->
+        <section id="tab-pastes" class="tab-content">
+            <div class="tab-header">
+                <h2>Recent Pastes</h2>
+                <div class="tab-search">
+                    <input type="text" id="pasteSearch" placeholder="Search pastes..." oninput="searchPastes()">
+                </div>
+            </div>
+            <div id="pastesContainer" class="content-grid"></div>
+            <div id="pastesPagination" class="pagination"></div>
+        </section>
+
+        <!-- Users Tab -->
+        <section id="tab-users" class="tab-content">
+            <div class="tab-header">
+                <h2>Users</h2>
+                <div class="tab-search">
+                    <input type="text" id="userSearch" placeholder="Search users..." oninput="searchUsers()">
+                </div>
+            </div>
+            <div id="usersContainer" class="content-grid"></div>
+        </section>
+
+        <!-- Management Tab -->
+        <section id="tab-management" class="tab-content">
+            <div class="tab-header">
+                <h2>Management Team</h2>
+            </div>
+            <div id="managementContainer" class="content-grid"></div>
+        </section>
+
+        <!-- Marketplace Tab -->
+        <section id="tab-marketplace" class="tab-content">
+            <div class="tab-header">
+                <h2>Marketplace</h2>
+            </div>
+            <div class="marketplace-grid">
+                <div class="marketplace-card premium-card">
+                    <div class="marketplace-header" style="border-color: #00BFFF;">
+                        <span class="marketplace-tier" style="color: #00BFFF; text-shadow: 0 0 10px #00BFFF;">premium</span>
+                        <span class="marketplace-price">$10</span>
+                    </div>
+                    <ul class="marketplace-perks">
+                        <li><i class="fas fa-tag"></i> <span style="color: #00BFFF;">premium</span> role badge + glow</li>
+                        <li><i class="fas fa-chart-line"></i> guaranteed view + like boost on pastes</li>
+                        <li><i class="fas fa-thumbtack"></i> ability to pin pastes</li>
+                        <li><i class="fas fa-paste"></i> increased paste size limit</li>
+                        <li><i class="fas fa-star"></i> priority support</li>
+                        <li><i class="fas fa-crown"></i> exclusive premium badge on profile</li>
+                    </ul>
+                    <div class="marketplace-footer">
+                        <p class="marketplace-discord">discord: <strong>https://discord.gg/GtwPve5eCz</strong></p>
+                        <p class="marketplace-contact">dm <strong>@57ct</strong> to purchase</p>
+                    </div>
+                </div>
+
+                <div class="marketplace-card vip-card">
+                    <div class="marketplace-header" style="border-color: #00FF00;">
+                        <span class="marketplace-tier" style="color: #00FF00; text-shadow: 0 0 10px #00FF00;">VIP</span>
+                        <span class="marketplace-price">$35</span>
+                    </div>
+                    <ul class="marketplace-perks">
+                        <li><i class="fas fa-tag"></i> <span style="color: #00FF00;">VIP</span> role badge + color</li>
+                        <li><i class="fas fa-eye"></i> +250,000 view boost on any paste</li>
+                        <li><i class="fas fa-heart"></i> +10,000 like boost on any paste</li>
+                        <li><i class="fas fa-thumbtack"></i> 5 free pin slots for pastes</li>
+                        <li><i class="fas fa-paste"></i> unlimited paste size</li>
+                        <li><i class="fas fa-user-secret"></i> hidden username option on pastes</li>
+                        <li><i class="fas fa-bolt"></i> priority queue for paste indexing</li>
+                        <li><i class="fas fa-medal"></i> VIP badge on profile + all premium perks</li>
+                    </ul>
+                    <div class="marketplace-footer">
+                        <p class="marketplace-discord">discord: <strong>https://discord.gg/GtwPve5eCz</strong></p>
+                        <p class="marketplace-contact">dm <strong>@57ct</strong> to purchase</p>
+                    </div>
+                </div>
+
+                <div class="marketplace-card ceo-card">
+                    <div class="marketplace-header" style="border-color: #8B00FF;">
+                        <span class="marketplace-tier" style="color: #8B00FF; text-shadow: 0 0 10px #8B00FF;">CEO</span>
+                        <span class="marketplace-price">$50</span>
+                    </div>
+                    <ul class="marketplace-perks">
+                        <li><i class="fas fa-tag"></i> <span style="color: #8B00FF;">CEO</span> role badge + glow</li>
+                        <li><i class="fas fa-eye"></i> +1,000,000 view boost on any paste</li>
+                        <li><i class="fas fa-heart"></i> +100,000 like boost on any paste</li>
+                        <li><i class="fas fa-thumbtack"></i> unlimited pin slots</li>
+                        <li><i class="fas fa-paste"></i> unlimited paste size</li>
+                        <li><i class="fas fa-user-secret"></i> hidden username option</li>
+                        <li><i class="fas fa-rocket"></i> instant paste indexing + featured</li>
+                        <li><i class="fas fa-crown"></i> CEO badge on profile + custom bio</li>
+                        <li><i class="fas fa-shield"></i> paste protection (no deletion)</li>
+                        <li><i class="fas fa-gem"></i> all VIP + premium perks included</li>
+                    </ul>
+                    <div class="marketplace-footer">
+                        <p class="marketplace-discord">discord: <strong>https://discord.gg/GtwPve5eCz</strong></p>
+                        <p class="marketplace-contact">dm <strong>@57ct</strong> to purchase</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Announcements Tab -->
+        <section id="tab-announcements" class="tab-content">
+            <div class="tab-header">
+                <h2>Announcements</h2>
+            </div>
+            <div id="announcementsContainer" class="announcements-list"></div>
+        </section>
+
+        <!-- TOS Tab -->
+        <section id="tab-tos" class="tab-content">
+            <div class="tab-header">
+                <h2>Terms of Service</h2>
+            </div>
+            <div id="tosContainer" class="tos-content"></div>
+        </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
