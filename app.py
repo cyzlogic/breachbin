@@ -27,21 +27,25 @@ def get_db():
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
-    if db is not None: db.close()
+    if db is not None:
+        db.close()
 
 def init_db():
     with app.app_context():
         db = get_db()
         c = db.cursor()
+
         c.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, email TEXT UNIQUE, role TEXT NOT NULL DEFAULT \'member\', bio TEXT DEFAULT \'\', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, paste_count INTEGER DEFAULT 0)')
         c.execute('CREATE TABLE IF NOT EXISTS pastes (id INTEGER PRIMARY KEY AUTOINCREMENT, paste_id TEXT UNIQUE NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, syntax TEXT DEFAULT \'text\', user_id INTEGER, username TEXT NOT NULL, exposure TEXT DEFAULT \'public\', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, views INTEGER DEFAULT 0, fake_views INTEGER DEFAULT 0, fake_likes INTEGER DEFAULT 0, pinned INTEGER DEFAULT 0, FOREIGN KEY (user_id) REFERENCES users (id))')
-        c.execute('CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, paste_id TEXT NOT NULL, username TEXT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (paste_id) REFERENCES pastes (paste_id))')
-        c.execute('CREATE TABLE IF NOT EXISTS likes (id INTEGER PRIMARY KEY AUTOINCREMENT, paste_id TEXT NOT NULL, user_id INTEGER NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(paste_id, user_id), FOREIGN KEY (paste_id) REFERENCES pastes (paste_id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        c.execute('CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, paste_id TEXT NOT NULL, username TEXT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+        c.execute('CREATE TABLE IF NOT EXISTS likes (id INTEGER PRIMARY KEY AUTOINCREMENT, paste_id TEXT NOT NULL, user_id INTEGER NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(paste_id, user_id))')
         c.execute('CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content TEXT NOT NULL, author TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
         c.execute('CREATE TABLE IF NOT EXISTS tos (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+
         c.execute('SELECT COUNT(*) FROM tos')
         if c.fetchone()[0] == 0:
             c.execute('INSERT INTO tos (content) VALUES (?)', ('Default Terms of Service - Edit in admin panel.',))
+
         try: c.execute('ALTER TABLE pastes ADD COLUMN fake_views INTEGER DEFAULT 0')
         except: pass
         try: c.execute('ALTER TABLE pastes ADD COLUMN fake_likes INTEGER DEFAULT 0')
@@ -50,7 +54,12 @@ def init_db():
         except: pass
         try: c.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
         except: pass
+
         db.commit()
+
+# ✅ THIS is the important fix for Render
+with app.app_context():
+    init_db()
 
 ROLE_COLORS = {
     'owner': {'color': '#FF0000', 'glow': '0 0 10px #FF0000, 0 0 20px #FF0000'},
@@ -66,22 +75,29 @@ ROLE_COLORS = {
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if 'user_id' not in session: return jsonify({'error': 'Login required'}), 401
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
         return f(*args, **kwargs)
     return decorated
 
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if session.get('admin_bypass'): return f(*args, **kwargs)
-        if 'user_id' not in session: return jsonify({'error': 'Login required'}), 401
+        if session.get('admin_bypass'):
+            return f(*args, **kwargs)
+        if 'user_id' not in session:
+            return jsonify({'error': 'Login required'}), 401
         db = get_db()
         user = db.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-        if not user or user['role'] not in ['owner', 'admin', 'boss']: return jsonify({'error': 'Admin access required'}), 403
+        if not user or user['role'] not in ['owner', 'admin', 'boss']:
+            return jsonify({'error': 'Admin access required'}), 403
         return f(*args, **kwargs)
     return decorated
 
-def generate_paste_id(): return uuid.uuid4().hex[:12]
+def generate_paste_id():
+    return uuid.uuid4().hex[:12]
+
+# (everything else stays EXACTLY the same ↓)
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -91,6 +107,11 @@ def view_paste(paste_id): return render_template('paste.html', paste_id=paste_id
 
 @app.route('/user/<username>')
 def view_user(username): return render_template('user_profile.html', username=username)
+
+# ... KEEP ALL YOUR OTHER ROUTES EXACTLY AS THEY WERE ...
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
 # ===== AUTH =====
 @app.route('/api/auth/signup', methods=['POST'])

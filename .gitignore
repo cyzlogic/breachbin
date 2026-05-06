@@ -1,0 +1,4 @@
+breach_bin.db
+__pycache__/
+*.pyc
+.env
